@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pomodoro">
+<meta name="theme-color" content="#f0f4fa">
+<title>Pomodoro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue:    #3b82f6;
+    --blue-lt: #38bdf8;
+    --bg:      #f0f4fa;
+    --card:    #ffffff;
+    --text:    #1a2540;
+    --muted:   #a0bcd8;
+    --pill:    #e2eaf5;
+    --c0: #edf2fb;
+    --c1: #bfdbfe;
+    --c2: #60a5fa;
+    --c3: #3b82f6;
+    --c4: #1d4ed8;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    min-height:100vh; background:var(--bg);
+    font-family:'Inter',-apple-system,sans-serif;
+    color:var(--text); user-select:none;
+    overflow-x:hidden; overflow-y:auto;
+    padding:24px 16px 40px;
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(59,130,246,.045) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(59,130,246,.045) 1px,transparent 1px);
+    background-size:36px 36px;
+    pointer-events:none; z-index:0;
+  }
+  #wrap {
+    position:relative; z-index:1;
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    width:100%; max-width:480px;
+  }
+
+  /* animations */
+  @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:.2} }
+  @keyframes fadein   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes logslide { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes popCell  { 0%{transform:scale(1)} 50%{transform:scale(1.7)} 100%{transform:scale(1)} }
+
+  /* install banner */
+  #install-bar {
+    display:none; width:100%; max-width:480px;
+    background:#eff6ff; border:1px solid rgba(59,130,246,.2);
+    border-radius:16px; padding:10px 16px;
+    align-items:center; justify-content:space-between; gap:8px;
+    animation:fadein .4s ease both;
+  }
+  #install-bar.show { display:flex; }
+  #install-bar span { font-size:11px; color:var(--blue); font-weight:500; }
+  #btn-install {
+    border:none; cursor:pointer;
+    background:var(--blue); color:#fff;
+    font-size:11px; font-weight:700;
+    padding:7px 16px; border-radius:9px; white-space:nowrap;
+  }
+  #btn-install-close {
+    border:none; background:none; cursor:pointer;
+    font-size:18px; color:var(--muted); line-height:1; padding:0 4px;
+  }
+
+  /* card base */
+  .card {
+    background:var(--card); border-radius:24px;
+    box-shadow:0 2px 4px rgba(59,130,246,.05),0 16px 48px rgba(59,130,246,.10),0 0 0 1px rgba(59,130,246,.07);
+    width:100%; animation:fadein .6s ease both;
+  }
+
+  /* timer card */
+  #timer-card { padding:32px 28px 28px; display:flex; flex-direction:column; align-items:center; }
+  #app-title {
+    font-family:'Orbitron',monospace;
+    font-size:10px; font-weight:700; letter-spacing:.4em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:8px;
+  }
+  #phase-label {
+    font-size:11px; font-weight:600; letter-spacing:.28em; text-transform:uppercase;
+    color:var(--blue); margin-bottom:24px;
+    display:flex; align-items:center; gap:7px; transition:color .4s;
+  }
+  #phase-dot {
+    width:7px; height:7px; border-radius:50%;
+    background:var(--blue); flex-shrink:0; transition:background .4s;
+  }
+  #phase-dot.running { animation:blink 1.2s ease-in-out infinite; }
+
+  /* donut */
+  #ring-wrap { position:relative; width:220px; height:220px; margin-bottom:24px; }
+  #ring-svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
+  #track { fill:none; stroke:#e8f0fc; stroke-width:18; }
+  #arc   { fill:none; stroke:var(--blue); stroke-width:18; stroke-linecap:round;
+           transition:stroke-dasharray .7s linear,stroke .4s; }
+  #ring-inner {
+    position:absolute; inset:20px; border-radius:50%;
+    background:#f8faff; transition:box-shadow .4s;
+  }
+  #center {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  }
+  #time-display {
+    font-family:'Orbitron',monospace;
+    font-size:46px; font-weight:900; letter-spacing:.02em;
+    color:var(--text); line-height:1;
+    transition:color .4s,font-size .3s;
+    text-shadow:0 0 24px rgba(59,130,246,.12);
+  }
+  #set-display { font-size:10px; color:var(--muted); letter-spacing:.14em; font-family:monospace; }
+
+  /* indicators */
+  #indicators { display:flex; gap:8px; margin-bottom:20px; }
+  .dot { height:8px; border-radius:4px; background:var(--pill); transition:all .3s ease; }
+
+  /* controls */
+  #controls { display:flex; gap:10px; align-items:center; }
+  .pomo-btn {
+    border:none; cursor:pointer;
+    font-family:'Inter',sans-serif; font-weight:600;
+    letter-spacing:.07em; border-radius:11px;
+    padding:0 18px; font-size:11px;
+    background:#f0f4fa; color:#7090b0;
+    height:40px; display:flex; align-items:center; justify-content:center;
+    transition:background .15s,transform .1s; text-transform:uppercase;
+  }
+  .pomo-btn:active { transform:scale(.95); background:#e2eaf5; }
+  #btn-start {
+    border-radius:13px; padding:0 40px;
+    font-size:13px; font-weight:700; letter-spacing:.13em;
+    background:var(--blue); color:#fff;
+    box-shadow:0 4px 14px rgba(59,130,246,.35);
+    height:46px; transition:background .3s,box-shadow .3s,transform .1s;
+  }
+  #btn-start:active { transform:scale(.96); }
+  #btn-start:disabled { background:#dde8f5; color:#adc4da; box-shadow:none; transform:none; }
+  #hint {
+    margin-top:16px; font-size:10px; color:#b8cce0;
+    letter-spacing:.2em; text-transform:uppercase; min-height:13px; text-align:center;
+  }
+
+  /* graph card */
+  #graph-card { padding:24px 24px 20px; animation-delay:.1s; }
+  #graph-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  #graph-title {
+    font-family:'Orbitron',monospace;
+    font-size:10px; font-weight:700; letter-spacing:.35em; text-transform:uppercase; color:var(--muted);
+  }
+  #graph-stats { font-size:11px; font-weight:600; color:var(--blue); letter-spacing:.04em; }
+  #month-labels {
+    display:flex; margin-bottom:4px; padding-left:24px;
+    font-size:9px; color:var(--muted); letter-spacing:.04em; overflow:hidden;
+  }
+  .month-label { flex-shrink:0; }
+  #graph-body { display:flex; gap:4px; }
+  #weekday-labels {
+    display:flex; flex-direction:column; gap:2px; padding-top:2px;
+    font-size:9px; color:var(--muted); letter-spacing:.02em;
+  }
+  .wday { height:11px; line-height:11px; width:16px; text-align:right; padding-right:4px; }
+  #graph-grid {
+    display:flex; gap:2px; overflow-x:auto;
+    scrollbar-width:none; padding-bottom:2px;
+  }
+  #graph-grid::-webkit-scrollbar { display:none; }
+  .week-col { display:flex; flex-direction:column; gap:2px; }
+  .cell {
+    width:11px; height:11px; border-radius:2px;
+    background:var(--c0); cursor:default;
+    transition:transform .15s,filter .15s; flex-shrink:0;
+  }
+  .cell:hover { transform:scale(1.3); filter:brightness(1.1); }
+  .cell.c1 { background:var(--c1); }
+  .cell.c2 { background:var(--c2); }
+  .cell.c3 { background:var(--c3); }
+  .cell.c4 { background:var(--c4); }
+  .cell.pop { animation:popCell .4s ease; }
+  .cell.future { opacity:.3; }
+  #legend {
+    display:flex; align-items:center; gap:5px;
+    margin-top:12px; justify-content:flex-end;
+    font-size:9px; color:var(--muted);
+  }
+  .leg { width:10px; height:10px; border-radius:2px; }
+
+  /* tooltip */
+  #tooltip {
+    position:fixed; pointer-events:none;
+    background:#1a2540; color:#fff;
+    font-size:10px; border-radius:8px;
+    padding:5px 10px; white-space:nowrap;
+    opacity:0; transition:opacity .15s; z-index:100;
+    box-shadow:0 4px 12px rgba(0,0,0,.2);
+  }
+  #tooltip.show { opacity:1; }
+
+  /* log card */
+  #log-card { padding:20px 22px; animation-delay:.2s; }
+  #log-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  #log-title {
+    font-family:'Orbitron',monospace;
+    font-size:10px; font-weight:700; letter-spacing:.35em; text-transform:uppercase; color:var(--muted);
+  }
+  #btn-clear-log {
+    border:none; background:none; cursor:pointer;
+    font-family:inherit; font-size:9px; color:#c0d4e8;
+    padding:4px 8px; border-radius:6px; text-transform:uppercase; letter-spacing:.06em; height:28px;
+  }
+  #btn-clear-log:active { background:#f0f4fa; }
+  #log-list {
+    display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto;
+    scrollbar-width:thin; scrollbar-color:#dde8f5 transparent;
+  }
+  #log-list::-webkit-scrollbar { width:3px; }
+  #log-list::-webkit-scrollbar-thumb { background:#dde8f5; border-radius:3px; }
+  .log-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; background:#f8faff; border-radius:10px;
+    border:1px solid #edf2fb; animation:logslide .3s ease;
+  }
+  .log-date { font-size:12px; color:#7090b0; font-family:monospace; }
+  .log-time-s { font-size:10px; color:#b8cce0; }
+  .log-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    background:#eff6ff; border-radius:6px; padding:3px 10px;
+    font-size:11px; font-weight:700; color:var(--blue);
+  }
+  .log-badge::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--blue); }
+  #log-empty { font-size:11px; color:#c0d4e8; text-align:center; padding:12px 0; }
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+<div id="wrap">
+
+  <!-- install banner -->
+  <div id="install-bar">
+    <span>📲 ホーム画面に追加でオフライン使用可能</span>
+    <button id="btn-install">追加</button>
+    <button id="btn-install-close">×</button>
+  </div>
+
+  <!-- Timer -->
+  <div class="card" id="timer-card">
+    <div id="app-title">Pomodoro Timer</div>
+    <div id="phase-label">
+      <span id="phase-dot"></span>
+      <span id="phase-text">Focus</span>
+    </div>
+    <div id="ring-wrap">
+      <div id="ring-inner"></div>
+      <svg id="ring-svg" width="220" height="220">
+        <circle id="track" cx="110" cy="110" r="92"/>
+        <circle id="arc"   cx="110" cy="110" r="92"/>
+      </svg>
+      <div id="center">
+        <div id="time-display">25:00</div>
+        <div id="set-display">SET 1 / 4</div>
+      </div>
+    </div>
+    <div id="indicators">
+      <div class="dot" id="dot-0"></div>
+      <div class="dot" id="dot-1"></div>
+      <div class="dot" id="dot-2"></div>
+      <div class="dot" id="dot-3"></div>
+    </div>
+    <div id="controls">
+      <button class="pomo-btn" id="btn-reset">Reset</button>
+      <button class="pomo-btn" id="btn-start">Start</button>
+      <button class="pomo-btn" id="btn-skip">Skip →</button>
+    </div>
+    <div id="hint">Focus → Break → Repeat</div>
+  </div>
+
+  <!-- Graph -->
+  <div class="card" id="graph-card">
+    <div id="graph-header">
+      <div id="graph-title">Activity</div>
+      <div id="graph-stats"></div>
+    </div>
+    <div id="month-labels"></div>
+    <div id="graph-body">
+      <div id="weekday-labels">
+        <div class="wday"></div>
+        <div class="wday">Mon</div>
+        <div class="wday"></div>
+        <div class="wday">Wed</div>
+        <div class="wday"></div>
+        <div class="wday">Fri</div>
+        <div class="wday"></div>
+      </div>
+      <div id="graph-grid"></div>
+    </div>
+    <div id="legend">
+      <span>Less</span>
+      <div class="leg" style="background:var(--c0)"></div>
+      <div class="leg" style="background:var(--c1)"></div>
+      <div class="leg" style="background:var(--c2)"></div>
+      <div class="leg" style="background:var(--c3)"></div>
+      <div class="leg" style="background:var(--c4)"></div>
+      <span>More</span>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card" id="log-card">
+    <div id="log-header">
+      <div id="log-title">Session Log</div>
+      <button id="btn-clear-log">Clear</button>
+    </div>
+    <div id="log-list">
+      <div id="log-empty">まだ記録がありません</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ── PWA: Service Worker ── */
+  if('serviceWorker' in navigator){
+    var swCode=[
+      'var CACHE="pomo-v3";',
+      'self.addEventListener("install",function(e){',
+      '  e.waitUntil(caches.open(CACHE).then(function(c){',
+      '    return c.addAll([self.location.href]);',
+      '  }));',
+      '  self.skipWaiting();',
+      '});',
+      'self.addEventListener("activate",function(e){',
+      '  e.waitUntil(',
+      '    caches.keys().then(function(keys){',
+      '      return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));',
+      '    }).then(function(){ return clients.claim(); })',
+      '  );',
+      '});',
+      'self.addEventListener("fetch",function(e){',
+      '  e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request);}));',
+      '});'
+    ].join('\n');
+    try{
+      var blob=new Blob([swCode],{type:'application/javascript'});
+      var swUrl=URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).catch(function(){});
+    }catch(e){}
+  }
+
+  /* ── PWA: install prompt ── */
+  var deferredPrompt=null;
+  var installBar=document.getElementById('install-bar');
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault(); deferredPrompt=e; installBar.classList.add('show');
+  });
+  document.getElementById('btn-install').addEventListener('click',function(){
+    if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;}
+    installBar.classList.remove('show');
+  });
+  document.getElementById('btn-install-close').addEventListener('click',function(){
+    installBar.classList.remove('show');
+  });
+  window.addEventListener('appinstalled',function(){ installBar.classList.remove('show'); });
+
+  /* ── constants ── */
+  var WORK=25*60, BREAK=5*60, MAX_SETS=4;
+  var R=92, CIRC=2*Math.PI*R;
+  var LOG_KEY="pomo_log_v2";
+  var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var WEEKS=53;
+
+  /* ── timer state ── */
+  var phase="work", timeLeft=WORK, isRunning=false;
+  var currentSet=1, completedSets=0, done=false, tmr=null;
+
+  /* ── elements ── */
+  var arcEl    =document.getElementById("arc");
+  var ringInner=document.getElementById("ring-inner");
+  var timeEl   =document.getElementById("time-display");
+  var setEl    =document.getElementById("set-display");
+  var phaseText=document.getElementById("phase-text");
+  var phaseDot =document.getElementById("phase-dot");
+  var hintEl   =document.getElementById("hint");
+  var btnStart =document.getElementById("btn-start");
+  var btnSkip  =document.getElementById("btn-skip");
+  var btnReset =document.getElementById("btn-reset");
+  var tooltip  =document.getElementById("tooltip");
+
+  function fmt(s){ return ("0"+Math.floor(s/60)).slice(-2)+":"+("0"+(s%60)).slice(-2); }
+  function toKey(d){
+    return d.getFullYear()+"/"
+      +("0"+(d.getMonth()+1)).slice(-2)+"/"
+      +("0"+d.getDate()).slice(-2);
+  }
+
+  /* ── log ── */
+  function loadLog(){ try{return JSON.parse(localStorage.getItem(LOG_KEY))||[];}catch(e){return[];} }
+  function saveLog(l){ try{localStorage.setItem(LOG_KEY,JSON.stringify(l));}catch(e){} }
+
+  function addLogEntry(sets){
+    var now=new Date();
+    var log=loadLog();
+    log.unshift({date:toKey(now),time:("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2),sets:sets});
+    saveLog(log);
+    renderLog(); renderGraph(true);
+  }
+
+  function renderLog(){
+    var log=loadLog();
+    var list=document.getElementById("log-list");
+    var empty=document.getElementById("log-empty");
+    var items=list.querySelectorAll(".log-item");
+    for(var i=0;i<items.length;i++) items[i].parentNode.removeChild(items[i]);
+    if(!log.length){empty.style.display="";return;}
+    empty.style.display="none";
+    log.forEach(function(e){
+      var item=document.createElement("div");
+      item.className="log-item";
+      item.innerHTML='<span class="log-date">'+e.date+' <span class="log-time-s">'+e.time+'</span></span>'
+        +'<span class="log-badge">'+e.sets+' set'+(e.sets>1?"s":"")+'</span>';
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById("btn-clear-log").addEventListener("click",function(){
+    if(confirm("ログをすべて削除しますか？")){
+      try{localStorage.removeItem(LOG_KEY);}catch(e){}
+      renderLog(); renderGraph(false);
+    }
+  });
+
+  /* ── graph ── */
+  function buildDateMap(){
+    var log=loadLog(), map={};
+    log.forEach(function(e){ map[e.date]=(map[e.date]||0)+e.sets; });
+    return map;
+  }
+  function cellClass(n){
+    if(!n) return "";
+    if(n===1) return "c1";
+    if(n===2) return "c2";
+    if(n===3) return "c3";
+    return "c4";
+  }
+
+  function renderGraph(animate){
+    var grid=document.getElementById("graph-grid");
+    var monthLabels=document.getElementById("month-labels");
+    var statsEl=document.getElementById("graph-stats");
+    grid.innerHTML=""; monthLabels.innerHTML="";
+
+    var map=buildDateMap();
+    var today=new Date(); today.setHours(0,0,0,0);
+    var todayKey=toKey(today);
+
+    /* start: Sunday 52 weeks ago */
+    var start=new Date(today);
+    start.setDate(start.getDate()-(WEEKS*7-1)-start.getDay());
+
+    /* stats */
+    var totalSets=0, activeDays=0;
+    Object.keys(map).forEach(function(k){
+      var d=new Date(k.replace(/\//g,"-"));
+      var diff=(today-d)/(86400000);
+      if(diff>=0&&diff<365){ totalSets+=map[k]; activeDays++; }
+    });
+    statsEl.textContent=totalSets+" sets  ·  "+activeDays+" days";
+
+    var monthLabelData=[], prevMonth=-1;
+    var unitW=13; /* 11px cell + 2px gap */
+
+    for(var w=0;w<WEEKS;w++){
+      var col=document.createElement("div");
+      col.className="week-col";
+      for(var d2=0;d2<7;d2++){
+        var date=new Date(start);
+        date.setDate(start.getDate()+w*7+d2);
+        var key=toKey(date);
+        var sets=map[key]||0;
+        var cell=document.createElement("div");
+        cell.className="cell";
+        var cls=cellClass(sets);
+        if(cls) cell.classList.add(cls);
+        if(date>today) cell.classList.add("future");
+        if(animate&&key===todayKey&&cls){ cell.classList.add("pop"); }
+
+        /* tooltip */
+        (function(k,s){
+          cell.addEventListener("mouseenter",function(ev){
+            tooltip.textContent=k+"  "+(s>0?s+" set"+(s>1?"s":""):"No sessions");
+            tooltip.classList.add("show");
+          });
+          cell.addEventListener("mousemove",function(ev){
+            tooltip.style.left=(ev.clientX+12)+"px";
+            tooltip.style.top=(ev.clientY-30)+"px";
+          });
+          cell.addEventListener("mouseleave",function(){
+            tooltip.classList.remove("show");
+          });
+        })(key,sets);
+
+        col.appendChild(cell);
+
+        /* month label */
+        if(d2===0){
+          var m=date.getMonth();
+          if(m!==prevMonth){ monthLabelData.push({col:w,label:MONTHS[m]}); prevMonth=m; }
+        }
+      }
+      grid.appendChild(col);
+    }
+
+    /* month labels */
+    monthLabelData.forEach(function(ml,i){
+      var span=document.createElement("span");
+      span.className="month-label";
+      var nextCol=i<monthLabelData.length-1?monthLabelData[i+1].col:WEEKS;
+      var w2=(nextCol-ml.col)*unitW;
+      span.style.width=(w2>0?w2:40)+"px";
+      span.textContent=(i>0&&ml.col-monthLabelData[i-1].col<3)?"":ml.label;
+      monthLabels.appendChild(span);
+    });
+
+    /* scroll to today */
+    grid.scrollLeft=grid.scrollWidth;
+  }
+
+  /* ── timer render ── */
+  function render(){
+    var total=(phase==="work")?WORK:BREAK;
+    var progress=timeLeft/total;
+    arcEl.style.strokeDasharray=(CIRC*(1-progress))+" "+(CIRC*progress+1);
+    arcEl.style.strokeDashoffset=CIRC;
+
+    var color=(phase==="work")?"#3b82f6":"#38bdf8";
+    var glow=(phase==="work")?"rgba(59,130,246,.22)":"rgba(56,189,248,.22)";
+    arcEl.style.stroke=color;
+    arcEl.style.filter="drop-shadow(0 0 5px "+color+")";
+    phaseDot.style.background=color;
+    isRunning?phaseDot.classList.add("running"):phaseDot.classList.remove("running");
+    ringInner.style.boxShadow=isRunning?"inset 0 0 32px "+glow:"none";
+
+    if(done){
+      phaseText.textContent="Complete";
+      timeEl.textContent="DONE"; timeEl.style.fontSize="34px"; timeEl.style.color="#3b82f6";
+      setEl.style.display="none"; hintEl.textContent="";
+      btnStart.textContent="Done"; btnStart.disabled=true; btnSkip.disabled=true;
+    } else {
+      phaseText.textContent=(phase==="work")?"Focus":"Break";
+      timeEl.textContent=fmt(timeLeft); timeEl.style.fontSize="46px"; timeEl.style.color="#1a2540";
+      setEl.style.display=""; setEl.textContent="SET "+currentSet+" / "+MAX_SETS;
+      btnStart.textContent=isRunning?"Pause":"Start";
+      btnStart.disabled=false; btnSkip.disabled=false;
+      btnStart.style.background=color;
+      btnStart.style.boxShadow="0 4px 16px "+glow;
+      hintEl.textContent=(phase==="work")?"Focus → Break → Repeat":"Break  —  Next: Set "+(currentSet+1);
+    }
+    for(var i=0;i<MAX_SETS;i++){
+      var dot=document.getElementById("dot-"+i);
+      var isCur=(i===currentSet-1)&&!done;
+      dot.style.width=isCur?"24px":"8px";
+      dot.style.background=(i<completedSets)?"#3b82f6":isCur?color:"#e2eaf5";
+      dot.style.boxShadow=isCur?"0 0 7px "+color:"none";
+    }
+  }
+
+  function advance(){
+    clearInterval(tmr); isRunning=false;
+    if(phase==="work"){
+      if(currentSet>=MAX_SETS){ done=true; addLogEntry(completedSets+1); render(); return; }
+      phase="break"; timeLeft=BREAK;
+    } else { completedSets++; currentSet++; phase="work"; timeLeft=WORK; }
+    render();
+  }
+
+  btnStart.addEventListener("click",function(){
+    if(done) return;
+    isRunning=!isRunning;
+    if(isRunning){
+      tmr=setInterval(function(){
+        if(timeLeft<=1){clearInterval(tmr);timeLeft=0;render();advance();return;}
+        timeLeft--; render();
+      },1000);
+    } else clearInterval(tmr);
+    render();
+  });
+
+  btnReset.addEventListener("click",function(){
+    if(completedSets>0&&!done) addLogEntry(completedSets);
+    clearInterval(tmr);
+    isRunning=false; phase="work"; timeLeft=WORK;
+    currentSet=1; completedSets=0; done=false; render();
+  });
+
+  btnSkip.addEventListener("click",function(){
+    if(done) return; clearInterval(tmr); isRunning=false; advance();
+  });
+
+  /* ── init ── */
+  arcEl.style.strokeDasharray="0 "+(CIRC+1);
+  arcEl.style.strokeDashoffset=CIRC;
+  render(); renderLog(); renderGraph(false);
+})();
+</script>
+</body>
+</html>
