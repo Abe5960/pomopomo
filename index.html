@@ -50,7 +50,6 @@
     width:100%; max-width:480px;
   }
 
-  /* animations */
   @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:.2} }
   @keyframes fadein   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   @keyframes logslide { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
@@ -62,7 +61,6 @@
     background:#eff6ff; border:1px solid rgba(59,130,246,.2);
     border-radius:16px; padding:10px 16px;
     align-items:center; justify-content:space-between; gap:8px;
-    animation:fadein .4s ease both;
   }
   #install-bar.show { display:flex; }
   #install-bar span { font-size:11px; color:var(--blue); font-weight:500; }
@@ -77,14 +75,13 @@
     font-size:18px; color:var(--muted); line-height:1; padding:0 4px;
   }
 
-  /* card base */
   .card {
     background:var(--card); border-radius:24px;
     box-shadow:0 2px 4px rgba(59,130,246,.05),0 16px 48px rgba(59,130,246,.10),0 0 0 1px rgba(59,130,246,.07);
     width:100%; animation:fadein .6s ease both;
   }
 
-  /* timer card */
+  /* timer */
   #timer-card { padding:32px 28px 28px; display:flex; flex-direction:column; align-items:center; }
   #app-title {
     font-family:'Orbitron',monospace;
@@ -102,7 +99,6 @@
   }
   #phase-dot.running { animation:blink 1.2s ease-in-out infinite; }
 
-  /* donut */
   #ring-wrap { position:relative; width:220px; height:220px; margin-bottom:24px; }
   #ring-svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
   #track { fill:none; stroke:#e8f0fc; stroke-width:18; }
@@ -125,11 +121,9 @@
   }
   #set-display { font-size:10px; color:var(--muted); letter-spacing:.14em; font-family:monospace; }
 
-  /* indicators */
   #indicators { display:flex; gap:8px; margin-bottom:20px; }
   .dot { height:8px; border-radius:4px; background:var(--pill); transition:all .3s ease; }
 
-  /* controls */
   #controls { display:flex; gap:10px; align-items:center; }
   .pomo-btn {
     border:none; cursor:pointer;
@@ -155,7 +149,7 @@
     letter-spacing:.2em; text-transform:uppercase; min-height:13px; text-align:center;
   }
 
-  /* graph card */
+  /* graph */
   #graph-card { padding:24px 24px 20px; animation-delay:.1s; }
   #graph-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
   #graph-title {
@@ -199,7 +193,6 @@
   }
   .leg { width:10px; height:10px; border-radius:2px; }
 
-  /* tooltip */
   #tooltip {
     position:fixed; pointer-events:none;
     background:#1a2540; color:#fff;
@@ -210,7 +203,7 @@
   }
   #tooltip.show { opacity:1; }
 
-  /* log card */
+  /* log */
   #log-card { padding:20px 22px; animation-delay:.2s; }
   #log-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
   #log-title {
@@ -249,14 +242,12 @@
 <div id="tooltip"></div>
 <div id="wrap">
 
-  <!-- install banner -->
   <div id="install-bar">
     <span>📲 ホーム画面に追加でオフライン使用可能</span>
     <button id="btn-install">追加</button>
     <button id="btn-install-close">×</button>
   </div>
 
-  <!-- Timer -->
   <div class="card" id="timer-card">
     <div id="app-title">Pomodoro Timer</div>
     <div id="phase-label">
@@ -288,7 +279,6 @@
     <div id="hint">Focus → Break → Repeat</div>
   </div>
 
-  <!-- Graph -->
   <div class="card" id="graph-card">
     <div id="graph-header">
       <div id="graph-title">Activity</div>
@@ -318,7 +308,6 @@
     </div>
   </div>
 
-  <!-- Log -->
   <div class="card" id="log-card">
     <div id="log-header">
       <div id="log-title">Session Log</div>
@@ -332,22 +321,19 @@
 
 <script>
 (function(){
-  /* ── PWA: Service Worker ── */
+
+  /* ── PWA ── */
   if('serviceWorker' in navigator){
     var swCode=[
-      'var CACHE="pomo-v3";',
+      'var CACHE="pomo-v4";',
       'self.addEventListener("install",function(e){',
-      '  e.waitUntil(caches.open(CACHE).then(function(c){',
-      '    return c.addAll([self.location.href]);',
-      '  }));',
+      '  e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll([self.location.href]);}));',
       '  self.skipWaiting();',
       '});',
       'self.addEventListener("activate",function(e){',
-      '  e.waitUntil(',
-      '    caches.keys().then(function(keys){',
-      '      return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));',
-      '    }).then(function(){ return clients.claim(); })',
-      '  );',
+      '  e.waitUntil(caches.keys().then(function(keys){',
+      '    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));',
+      '  }).then(function(){return clients.claim();}));',
       '});',
       'self.addEventListener("fetch",function(e){',
       '  e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request);}));',
@@ -355,12 +341,10 @@
     ].join('\n');
     try{
       var blob=new Blob([swCode],{type:'application/javascript'});
-      var swUrl=URL.createObjectURL(blob);
-      navigator.serviceWorker.register(swUrl).catch(function(){});
+      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(function(){});
     }catch(e){}
   }
 
-  /* ── PWA: install prompt ── */
   var deferredPrompt=null;
   var installBar=document.getElementById('install-bar');
   window.addEventListener('beforeinstallprompt',function(e){
@@ -373,18 +357,19 @@
   document.getElementById('btn-install-close').addEventListener('click',function(){
     installBar.classList.remove('show');
   });
-  window.addEventListener('appinstalled',function(){ installBar.classList.remove('show'); });
 
   /* ── constants ── */
   var WORK=25*60, BREAK=5*60, MAX_SETS=4;
   var R=92, CIRC=2*Math.PI*R;
   var LOG_KEY="pomo_log_v2";
+  var STATE_KEY="pomo_state_v2";
   var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var WEEKS=53;
 
   /* ── timer state ── */
-  var phase="work", timeLeft=WORK, isRunning=false;
-  var currentSet=1, completedSets=0, done=false, tmr=null;
+  var phase, timeLeft, isRunning, currentSet, completedSets, done;
+  var startedAt=null; // タイマー開始時のtimestamp（ms）
+  var tmr=null;
 
   /* ── elements ── */
   var arcEl    =document.getElementById("arc");
@@ -399,11 +384,60 @@
   var btnReset =document.getElementById("btn-reset");
   var tooltip  =document.getElementById("tooltip");
 
-  function fmt(s){ return ("0"+Math.floor(s/60)).slice(-2)+":"+("0"+(s%60)).slice(-2); }
+  function fmt(s){
+    s=Math.max(0,Math.round(s));
+    return ("0"+Math.floor(s/60)).slice(-2)+":"+("0"+(s%60)).slice(-2);
+  }
   function toKey(d){
     return d.getFullYear()+"/"
       +("0"+(d.getMonth()+1)).slice(-2)+"/"
       +("0"+d.getDate()).slice(-2);
+  }
+
+  /* ── state persistence ── */
+  function saveState(){
+    try{
+      localStorage.setItem(STATE_KEY,JSON.stringify({
+        phase:phase, timeLeft:timeLeft, isRunning:isRunning,
+        currentSet:currentSet, completedSets:completedSets, done:done,
+        startedAt:startedAt // 開始時刻を保存
+      }));
+    }catch(e){}
+  }
+
+  function loadState(){
+    try{
+      var s=JSON.parse(localStorage.getItem(STATE_KEY));
+      if(!s) return false;
+      phase=s.phase||"work";
+      isRunning=s.isRunning||false;
+      currentSet=s.currentSet||1;
+      completedSets=s.completedSets||0;
+      done=s.done||false;
+      startedAt=s.startedAt||null;
+
+      // ★ ここが重要: 開始時刻から実際の経過時間を計算
+      if(isRunning && startedAt){
+        var elapsed=Math.floor((Date.now()-startedAt)/1000);
+        var savedLeft=s.timeLeft||WORK;
+        timeLeft=savedLeft-elapsed;
+        if(timeLeft<=0){
+          // 画面切り替え中にタイマーが終わっていた場合
+          timeLeft=0;
+          isRunning=false;
+          // advanceは後でrender後に呼ぶ
+          return "expired";
+        }
+      } else {
+        timeLeft=s.timeLeft!=null?s.timeLeft:WORK;
+      }
+      return true;
+    }catch(e){ return false; }
+  }
+
+  function resetState(){
+    phase="work"; timeLeft=WORK; isRunning=false;
+    currentSet=1; completedSets=0; done=false; startedAt=null;
   }
 
   /* ── log ── */
@@ -455,7 +489,6 @@
     if(n===3) return "c3";
     return "c4";
   }
-
   function renderGraph(animate){
     var grid=document.getElementById("graph-grid");
     var monthLabels=document.getElementById("month-labels");
@@ -465,23 +498,18 @@
     var map=buildDateMap();
     var today=new Date(); today.setHours(0,0,0,0);
     var todayKey=toKey(today);
-
-    /* start: Sunday 52 weeks ago */
     var start=new Date(today);
     start.setDate(start.getDate()-(WEEKS*7-1)-start.getDay());
 
-    /* stats */
-    var totalSets=0, activeDays=0;
+    var totalSets=0,activeDays=0;
     Object.keys(map).forEach(function(k){
       var d=new Date(k.replace(/\//g,"-"));
-      var diff=(today-d)/(86400000);
-      if(diff>=0&&diff<365){ totalSets+=map[k]; activeDays++; }
+      var diff=(today-d)/86400000;
+      if(diff>=0&&diff<365){totalSets+=map[k];activeDays++;}
     });
     statsEl.textContent=totalSets+" sets  ·  "+activeDays+" days";
 
-    var monthLabelData=[], prevMonth=-1;
-    var unitW=13; /* 11px cell + 2px gap */
-
+    var monthLabelData=[],prevMonth=-1,unitW=13;
     for(var w=0;w<WEEKS;w++){
       var col=document.createElement("div");
       col.className="week-col";
@@ -495,9 +523,7 @@
         var cls=cellClass(sets);
         if(cls) cell.classList.add(cls);
         if(date>today) cell.classList.add("future");
-        if(animate&&key===todayKey&&cls){ cell.classList.add("pop"); }
-
-        /* tooltip */
+        if(animate&&key===todayKey&&cls) cell.classList.add("pop");
         (function(k,s){
           cell.addEventListener("mouseenter",function(ev){
             tooltip.textContent=k+"  "+(s>0?s+" set"+(s>1?"s":""):"No sessions");
@@ -507,34 +533,24 @@
             tooltip.style.left=(ev.clientX+12)+"px";
             tooltip.style.top=(ev.clientY-30)+"px";
           });
-          cell.addEventListener("mouseleave",function(){
-            tooltip.classList.remove("show");
-          });
+          cell.addEventListener("mouseleave",function(){tooltip.classList.remove("show");});
         })(key,sets);
-
         col.appendChild(cell);
-
-        /* month label */
         if(d2===0){
           var m=date.getMonth();
-          if(m!==prevMonth){ monthLabelData.push({col:w,label:MONTHS[m]}); prevMonth=m; }
+          if(m!==prevMonth){monthLabelData.push({col:w,label:MONTHS[m]});prevMonth=m;}
         }
       }
       grid.appendChild(col);
     }
-
-    /* month labels */
     monthLabelData.forEach(function(ml,i){
       var span=document.createElement("span");
       span.className="month-label";
       var nextCol=i<monthLabelData.length-1?monthLabelData[i+1].col:WEEKS;
-      var w2=(nextCol-ml.col)*unitW;
-      span.style.width=(w2>0?w2:40)+"px";
+      span.style.width=((nextCol-ml.col)*unitW||40)+"px";
       span.textContent=(i>0&&ml.col-monthLabelData[i-1].col<3)?"":ml.label;
       monthLabels.appendChild(span);
     });
-
-    /* scroll to today */
     grid.scrollLeft=grid.scrollWidth;
   }
 
@@ -575,44 +591,117 @@
       dot.style.background=(i<completedSets)?"#3b82f6":isCur?color:"#e2eaf5";
       dot.style.boxShadow=isCur?"0 0 7px "+color:"none";
     }
+    saveState();
   }
 
   function advance(){
-    clearInterval(tmr); isRunning=false;
+    clearInterval(tmr); isRunning=false; startedAt=null;
     if(phase==="work"){
-      if(currentSet>=MAX_SETS){ done=true; addLogEntry(completedSets+1); render(); return; }
+      if(currentSet>=MAX_SETS){done=true;addLogEntry(completedSets+1);render();return;}
       phase="break"; timeLeft=BREAK;
-    } else { completedSets++; currentSet++; phase="work"; timeLeft=WORK; }
+    } else {completedSets++;currentSet++;phase="work";timeLeft=WORK;}
     render();
   }
+
+  /* ★ タイムスタンプベースのtick ── 画面復帰時も正確 */
+  function startTick(){
+    clearInterval(tmr);
+    tmr=setInterval(function(){
+      if(!startedAt) return;
+      var savedLeft=timeLeft; // 最後に保存した残り時間ではなく…
+      // 本当の残り時間 = 開始時に記録したtimeLeft - 今までの経過時間
+      // → startedAtと一緒に"その時のtimeLeft"も保存する必要がある
+      // → render()内でsaveState()しているので常に最新
+      var now=Date.now();
+      var elapsed=Math.floor((now-startedAt)/1000);
+      // STATE_KEYから最後のtimeLeftBaseを取得
+      var base=_timeLeftBase;
+      var tl=base-elapsed;
+      if(tl<=0){
+        clearInterval(tmr); timeLeft=0; render(); advance(); return;
+      }
+      timeLeft=tl;
+      render();
+    },500); // 0.5秒ごとに更新（より滑らか）
+  }
+
+  // タイマー開始時点のtimeLeftを記録する変数
+  var _timeLeftBase=WORK;
 
   btnStart.addEventListener("click",function(){
     if(done) return;
     isRunning=!isRunning;
     if(isRunning){
-      tmr=setInterval(function(){
-        if(timeLeft<=1){clearInterval(tmr);timeLeft=0;render();advance();return;}
-        timeLeft--; render();
-      },1000);
-    } else clearInterval(tmr);
+      startedAt=Date.now();
+      _timeLeftBase=timeLeft; // 開始時点の残り時間を記録
+      startTick();
+    } else {
+      // 一時停止: 現在の残り時間を確定して止める
+      clearInterval(tmr);
+      var elapsed=Math.floor((Date.now()-startedAt)/1000);
+      timeLeft=Math.max(0,_timeLeftBase-elapsed);
+      startedAt=null;
+    }
     render();
   });
 
   btnReset.addEventListener("click",function(){
     if(completedSets>0&&!done) addLogEntry(completedSets);
     clearInterval(tmr);
-    isRunning=false; phase="work"; timeLeft=WORK;
-    currentSet=1; completedSets=0; done=false; render();
+    resetState(); render();
   });
 
   btnSkip.addEventListener("click",function(){
-    if(done) return; clearInterval(tmr); isRunning=false; advance();
+    if(done) return; clearInterval(tmr); startedAt=null; isRunning=false; advance();
+  });
+
+  /* ★ 画面復帰時に経過時間を再計算 */
+  document.addEventListener("visibilitychange",function(){
+    if(document.visibilityState==="visible" && isRunning && startedAt){
+      var elapsed=Math.floor((Date.now()-startedAt)/1000);
+      timeLeft=Math.max(0,_timeLeftBase-elapsed);
+      if(timeLeft<=0){
+        clearInterval(tmr); timeLeft=0; render(); advance(); return;
+      }
+      // タイマーを再起動
+      startTick();
+      render();
+    }
+  });
+
+  /* ★ ページフォーカス復帰時も同様 */
+  window.addEventListener("focus",function(){
+    if(isRunning && startedAt){
+      var elapsed=Math.floor((Date.now()-startedAt)/1000);
+      timeLeft=Math.max(0,_timeLeftBase-elapsed);
+      if(timeLeft<=0){
+        clearInterval(tmr); timeLeft=0; render(); advance(); return;
+      }
+      startTick();
+      render();
+    }
   });
 
   /* ── init ── */
   arcEl.style.strokeDasharray="0 "+(CIRC+1);
   arcEl.style.strokeDashoffset=CIRC;
-  render(); renderLog(); renderGraph(false);
+
+  var loaded=loadState();
+  if(!loaded){ resetState(); }
+
+  // 復帰時にタイマーが動いていた場合は再開
+  if(isRunning && startedAt){
+    _timeLeftBase=timeLeft; // 既にloadState内で経過分を引いた値
+    // さらにここでstartedAtを今に更新し直す
+    startedAt=Date.now();
+    startTick();
+  }
+
+  if(loaded==="expired"){ advance(); }
+  else { render(); }
+
+  renderLog();
+  renderGraph(false);
 })();
 </script>
 </body>
