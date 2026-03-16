@@ -157,22 +157,19 @@
     font-size:10px; font-weight:700; letter-spacing:.35em; text-transform:uppercase; color:var(--muted);
   }
   #graph-stats { font-size:11px; font-weight:600; color:var(--blue); letter-spacing:.04em; }
-  #month-labels {
-    display:flex; margin-bottom:4px; padding-left:24px;
-    font-size:9px; color:var(--muted); letter-spacing:.04em; overflow:hidden;
-  }
-  .month-label { flex-shrink:0; }
   #graph-body { display:flex; gap:4px; }
   #weekday-labels {
-    display:flex; flex-direction:column; gap:2px; padding-top:2px;
-    font-size:9px; color:var(--muted); letter-spacing:.02em;
+    display:flex; flex-direction:column; gap:2px; padding-top:16px;
+    font-size:9px; color:var(--muted); letter-spacing:.02em; flex-shrink:0;
   }
   .wday { height:11px; line-height:11px; width:16px; text-align:right; padding-right:4px; }
-  #graph-grid {
-    display:flex; gap:2px; overflow-x:auto;
-    scrollbar-width:none; padding-bottom:2px;
-  }
-  #graph-grid::-webkit-scrollbar { display:none; }
+  /* ★ 月ラベルとグリッドを同じスクロールコンテナに */
+  #graph-scroll { overflow-x:auto; overflow-y:hidden; scrollbar-width:none; flex:1; }
+  #graph-scroll::-webkit-scrollbar { display:none; }
+  #graph-inner { display:inline-flex; flex-direction:column; gap:3px; }
+  #month-labels { display:flex; gap:2px; height:14px; align-items:flex-end; margin-bottom:1px; }
+  .month-label { font-size:9px; color:var(--muted); flex-shrink:0; overflow:hidden; white-space:nowrap; }
+  #graph-grid { display:flex; gap:2px; }
   .week-col { display:flex; flex-direction:column; gap:2px; }
   .cell {
     width:11px; height:11px; border-radius:2px;
@@ -284,7 +281,6 @@
       <div id="graph-title">Activity</div>
       <div id="graph-stats"></div>
     </div>
-    <div id="month-labels"></div>
     <div id="graph-body">
       <div id="weekday-labels">
         <div class="wday"></div>
@@ -295,7 +291,13 @@
         <div class="wday">Fri</div>
         <div class="wday"></div>
       </div>
-      <div id="graph-grid"></div>
+      <!-- ★ 月ラベルとグリッドが同じスクロールコンテナ -->
+      <div id="graph-scroll">
+        <div id="graph-inner">
+          <div id="month-labels"></div>
+          <div id="graph-grid"></div>
+        </div>
+      </div>
     </div>
     <div id="legend">
       <span>Less</span>
@@ -324,25 +326,7 @@
 
   /* ── PWA ── */
   if('serviceWorker' in navigator){
-    var swCode=[
-      'var CACHE="pomo-v4";',
-      'self.addEventListener("install",function(e){',
-      '  e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll([self.location.href]);}));',
-      '  self.skipWaiting();',
-      '});',
-      'self.addEventListener("activate",function(e){',
-      '  e.waitUntil(caches.keys().then(function(keys){',
-      '    return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));',
-      '  }).then(function(){return clients.claim();}));',
-      '});',
-      'self.addEventListener("fetch",function(e){',
-      '  e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request);}));',
-      '});'
-    ].join('\n');
-    try{
-      var blob=new Blob([swCode],{type:'application/javascript'});
-      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(function(){});
-    }catch(e){}
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
   }
 
   var deferredPrompt=null;
@@ -492,37 +476,45 @@
   function renderGraph(animate){
     var grid=document.getElementById("graph-grid");
     var monthLabels=document.getElementById("month-labels");
+    var scrollEl=document.getElementById("graph-scroll");
     var statsEl=document.getElementById("graph-stats");
     grid.innerHTML=""; monthLabels.innerHTML="";
 
     var map=buildDateMap();
     var today=new Date(); today.setHours(0,0,0,0);
+    var todayMs=today.getTime();
     var todayKey=toKey(today);
-    var start=new Date(today);
-    start.setDate(start.getDate()-(WEEKS*7-1)-start.getDay());
+
+    // ★ ミリ秒ベースで計算（日付ズレ防止）
+    var startMs=todayMs-(WEEKS*7-1)*86400000;
+    var dow=new Date(startMs).getDay();
+    startMs=startMs-dow*86400000; // 日曜に揃える
 
     var totalSets=0,activeDays=0;
     Object.keys(map).forEach(function(k){
-      var d=new Date(k.replace(/\//g,"-"));
-      var diff=(today-d)/86400000;
+      // ローカル時刻でパース（UTCズレ防止）
+      var parts=k.split("/");
+      var d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+      var diff=(todayMs-d.getTime())/86400000;
       if(diff>=0&&diff<365){totalSets+=map[k];activeDays++;}
     });
     statsEl.textContent=totalSets+" sets  ·  "+activeDays+" days";
 
-    var monthLabelData=[],prevMonth=-1,unitW=13;
+    var UNIT=13; // cell(11px) + gap(2px)
+    var monthLabelData=[],prevMonth=-1;
     for(var w=0;w<WEEKS;w++){
       var col=document.createElement("div");
       col.className="week-col";
       for(var d2=0;d2<7;d2++){
-        var date=new Date(start);
-        date.setDate(start.getDate()+w*7+d2);
+        var ms=startMs+(w*7+d2)*86400000;
+        var date=new Date(ms);
         var key=toKey(date);
         var sets=map[key]||0;
         var cell=document.createElement("div");
         cell.className="cell";
         var cls=cellClass(sets);
         if(cls) cell.classList.add(cls);
-        if(date>today) cell.classList.add("future");
+        if(ms>todayMs) cell.classList.add("future");
         if(animate&&key===todayKey&&cls) cell.classList.add("pop");
         (function(k,s){
           cell.addEventListener("mouseenter",function(ev){
@@ -543,15 +535,18 @@
       }
       grid.appendChild(col);
     }
+    // ★ 月ラベルの幅をグリッド列と完全に合わせる
     monthLabelData.forEach(function(ml,i){
-      var span=document.createElement("span");
+      var span=document.createElement("div");
       span.className="month-label";
       var nextCol=i<monthLabelData.length-1?monthLabelData[i+1].col:WEEKS;
-      span.style.width=((nextCol-ml.col)*unitW||40)+"px";
-      span.textContent=(i>0&&ml.col-monthLabelData[i-1].col<3)?"":ml.label;
+      var w2=(nextCol-ml.col)*UNIT;
+      span.style.width=w2+"px"; span.style.minWidth=w2+"px";
+      span.textContent=(i>0&&ml.col-monthLabelData[i-1].col<2)?"":ml.label;
       monthLabels.appendChild(span);
     });
-    grid.scrollLeft=grid.scrollWidth;
+    // ★ 月ラベルとグリッドが同じコンテナなので一緒に右端へスクロール
+    scrollEl.scrollLeft=scrollEl.scrollWidth;
   }
 
   /* ── timer render ── */
